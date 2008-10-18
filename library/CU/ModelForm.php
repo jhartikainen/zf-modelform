@@ -5,6 +5,13 @@
  */
 class CU_ModelForm extends Zend_Form
 {
+	const RELATION_ONE = 'one';
+	const RELATION_MANY = 'many';
+
+	protected static $_defaultAdapter = null;
+
+	protected $_adapter = null;
+
 	/**
 	 * PluginLoader for loading many relation forms
 	 */
@@ -120,13 +127,17 @@ class CU_ModelForm extends Zend_Form
 	 * @param array $options Options to pass to the Zend_Form constructor
 	 */
 	public function __construct($options = null)
-	{
+	{		
+		parent::__construct($options);
+
 		if($this->_model == '')
 			throw new Exception('No model defined');
 
-		$this->_table = Doctrine::getTable($this->_model);
+		$this->_adapter = self::$_defaultAdapter;
+		if($this->_adapter == null)
+			$this->_adapter = new CU_ModelForm_Adapter_Doctrine();
 
-		parent::__construct($options);
+		$this->_adapter->setTable($this->_model);
 
 		$this->_formLoader = new Zend_Loader_PluginLoader(array(
 			'App_Form_Model' => 'App/Form/Model/'
@@ -136,6 +147,43 @@ class CU_ModelForm extends Zend_Form
 		$this->_preGenerate();
 		$this->_generateForm();
 		$this->_postGenerate();
+	}
+
+	public static function setDefaultAdapter(CU_ModelForm_Adapter_Interface $adapter)
+	{
+		self::$_defaultAdapter = $adapter;
+	}
+	
+	public function setOptions(array $options)
+	{
+		if(isset($options['model']))
+			$this->_model = $options['model'];
+		
+		if(isset($options['ignoreColumns']))
+			$this->ignoreColumns($options['ignoreColumns']);
+		
+		if(isset($options['columnTypes']))
+			$this->setColumnTypes($options['columnTypes']);
+			
+		if(isset($options['fieldLabels']))
+			$this->setFieldLabels($options['fieldLabels']);
+
+		parent::setOptions($options);
+	}
+	
+	public function setFieldLabels(array $labels)
+	{
+		$this->_fieldLabels = $labels;
+	}
+	
+	public function setColumnTypes(array $types)
+	{
+		$this->_columnTypes = $types;
+	}
+	
+	public function ignoreColumns(array $columns)
+	{
+		$this->_ignoreColumns = $columns;
 	}
 	
 	public static function create(array $options = array())
@@ -173,29 +221,39 @@ class CU_ModelForm extends Zend_Form
 		return parent::getPluginLoader($type);
 	}
 
+	public function getTable()
+	{
+		return $this->_adapter->getTable();
+	}
+
 	/**
 	 * Set the model instance for editing existing rows
 	 * @param Doctrine_Record $instance
 	 */
 	public function setRecord($instance)
 	{
-		$this->_instance = $instance;
-		foreach($this->_getColumns() as $name => $definition)
+		$this->_adapter->setRecord($instance);
+		foreach($this->_adapter->getColumns() as $name => $definition)
 		{
-			$this->setDefault($this->_fieldPrefix . $name, $this->_instance->$name);
+			if($this->_isIgnoredColumn($name, $definition))
+				continue;
+
+			$this->setDefault($this->getColumnElementName($name), $this->_adapter->getRecordValue($name));
 		}
 
-		foreach($this->_getRelations() as $name => $relation)
+		foreach($this->_adapter->getRelations() as $name => $relation)
 		{
-			switch($relation->getType())
+			if($this->_isIgnoredRelation($relation))
+				continue;
+
+			switch($relation['type'])
 			{
-			case Doctrine_Relation::ONE_AGGREGATE:
-				$idColumn = $relation->getTable()->getIdentifier();
-				$this->setDefault($this->_fieldPrefix . $relation->getLocal(), $this->_instance->$name->$idColumn);
+			case CU_ModelForm::RELATION_ONE:
+				$this->setDefault($this->getRelationElementName($relation['alias']), $this->_adapter->getRelationPkValue($name, $relation));
 				break;
-			case Doctrine_Relation::MANY_AGGREGATE:
+			case CU_ModelForm::RELATION_MANY:
 				$formClass = $this->_relationForms[$relation->getClass()];
-				foreach($this->_instance->$name as $num => $rec)
+				foreach($this->_adapter->getManyRecords($name) as $num => $rec)
 				{
 					$form = new $formClass;
 					$form->setRecord($rec);
@@ -204,9 +262,9 @@ class CU_ModelForm extends Zend_Form
 					$form->addElement('submit', $this->_getDeleteButtonName($name, $rec), array(
 						'label' => 'Delete'
 					));
-					$label = $relation->getClass();
-					if(isset($this->_relationLabels[$relation->getClass()]))
-						$label = $this->_relationLabels[$relation->getClass()];
+					$label = $relation['class'];
+					if(isset($this->_relationLabels[$relation['class']]))
+						$label = $this->_relationLabels[$relation['class']];
 
 					$form->setLegend($label . ' ' . ($num + 1))
 					     ->addDecorator('Fieldset');
@@ -219,7 +277,14 @@ class CU_ModelForm extends Zend_Form
 
 	public function getRecord()
 	{
-		return ($this->_instance != null) ? $this->_instance : new $this->_model;
+		$inst = $this->_adapter->getRecord();
+		if($inst == null)
+		{
+			$inst = $this->_adapter->getNewRecord();
+			$this->_adapter->setRecord($inst);
+		}
+
+		return $inst;
 	}
 
 	/**
@@ -236,13 +301,16 @@ class CU_ModelForm extends Zend_Form
 	 */
 	protected function _columnsToFields()
 	{
-		foreach($this->_getColumns() as $name => $definition)
+		foreach($this->_adapter->getColumns() as $name => $definition)
 		{
+			if($this->_isIgnoredColumn($name, $definition))
+				continue;
+
 			$type = $this->_columnTypes[$definition['type']];
 			if(isset($this->_fieldTypes[$name]))
 				$type = $this->_fieldTypes[$name];
 
-			$field = $this->createElement($type, $this->_fieldPrefix . $name);
+			$field = $this->createElement($type, $this->getColumnElementName($name));
 			$label = $name;
 			if(isset($this->_fieldLabels[$name]))
 				$label = $this->_fieldLabels[$name];
@@ -272,43 +340,43 @@ class CU_ModelForm extends Zend_Form
 	 */
 	protected function _relationsToFields()
 	{
-		foreach($this->_getRelations() as $alias => $relation)
+		foreach($this->_adapter->getRelations() as $alias => $relation)
 		{
+			if($this->_isIgnoredRelation($relation))
+				continue;
+
 			$field = null;
 
-			switch($relation->getType())
+			switch($relation['type'])
 			{
-			case Doctrine_Relation::ONE_AGGREGATE:
-				$table = $relation->getTable();
-				$idColumn = $table->getIdentifier();
-
+			case CU_ModelForm::RELATION_ONE:
 				$options = array('------');
-				foreach($table->findAll() as $row)
+				foreach($this->_adapter->getOneRecords($relation) as $row)
 				{
-					$options[$row->$idColumn] = (string)$row;
+					$options[$this->_adapter->getRecordPkValue($row)] = (string)$row;
 				}
 
-				$field = $this->createElement('select', $this->_fieldPrefix . $relation->getLocal());
-				$label = (string)Doctrine_Manager::connection()->getTable($alias);
+				$field = $this->createElement('select', $this->getRelationElementName($alias));
+				$label = $relation['class'];
 				if(isset($this->_fieldLabels[$alias]))
 					$label = $this->_fieldLabels[$alias];
 
 				$field->setLabel($label);
 				
-				$definition = $this->_table->getColumnDefinition($relation->getLocal());
-				if(isset($definition['notnull']) && $definition['notnull'] == true)
+				if($relation['notnull'] == true)
 					$field->addValidator(new CU_Validate_DbRowExists($table));
 
 				$field->setMultiOptions($options);
 				break;
 
 			case Doctrine_Relation::MANY_AGGREGATE:
-				$class = $this->getPluginLoader(self::FORM)->load($relation->getClass());
-				$this->_relationForms[$relation->getClass()] = $class;
+				$relCls = $relation['class'];
+				$class = $this->getPluginLoader(self::FORM)->load($relCls);
+				$this->_relationForms[$relCls] = $class;
 
-				$label = $relation->getClass();
-				if(isset($this->_relationLabels[$relation->getClass()]))
-					$label = $this->_relationLabels[$relation->getClass()];
+				$label = $relCls;
+				if(isset($this->_relationLabels[$relCls]))
+					$label = $this->_relationLabels[$relCls];
 
 				$field = $this->createElement('submit', $this->_getNewButtonName($alias), array(
 					'label' => 'Add new '. $label
@@ -319,6 +387,24 @@ class CU_ModelForm extends Zend_Form
 			if($field != null)
 				$this->addElement($field);
 		}
+	}
+
+	protected function _isIgnoredRelation($definition)
+	{
+			if(in_array($definition['local'], $this->_ignoreColumns) ||
+				($this->_generateManyFields == false && $definition['type'] == CU_ModelForm::RELATION_MANY))
+				return true;
+
+			return false;
+	}
+
+	protected function _isIgnoredColumn($name, $definition)
+	{
+		if((isset($definition['primary']) && $definition['primary']) ||
+			!isset($this->_columnTypes[$definition['type']]) || in_array($name, $this->_ignoreColumns))
+			return true;
+
+		return false;
 	}
 
 	/**
@@ -340,9 +426,8 @@ class CU_ModelForm extends Zend_Form
 	protected function _getDeleteButtonName($relationAlias, Doctrine_Record $record = null)
 	{
 		$val = 'new';
-		$idColumn = $record->getTable()->getIdentifier();
 		if($record != null)
-			$val = $record->$idColumn;
+			$val = $this->_adapter->getRecordPkValue($record);
 
 		return $relationAlias . '_' . $val . '_delete';
 	}
@@ -356,8 +441,8 @@ class CU_ModelForm extends Zend_Form
 	{
 		if($record != null)
 		{
-			$idColumn = $record->getTable()->getIdentifier();
-			return $relationAlias . '_' . $record->$idColumn;
+			$val = $this->_adapter->getRecordPkValue($record);
+			return $relationAlias . '_' . $val;
 		}
 
 		return $relationAlias . '_new_form';
@@ -375,9 +460,12 @@ class CU_ModelForm extends Zend_Form
 			}
 	    	}
 
-		foreach($this->_getRelations() as $name => $relation)
+		foreach($this->_adapter->getRelations() as $name => $relation)
 		{
-			if($relation->getType() != Doctrine_Relation::MANY_AGGREGATE)
+			if($this->_isIgnoredRelation($relation))
+				continue;
+
+			if($relation['type'] != CU_ModelForm::RELATION_MANY)
 				continue;
 
 			if(isset($ndata[$this->_getNewButtonName($name)]) || isset($ndata[$this->_getFormName($name)]))
@@ -388,7 +476,7 @@ class CU_ModelForm extends Zend_Form
 					return false;
 				}
 
-				$cls = $this->_relationForms[$relation->getClass()];
+				$cls = $this->_relationForms[$relation['class']];
 				$form = new $cls;
 				$form->setIsArray(true);
 				$form->removeDecorator('Form');
@@ -400,13 +488,14 @@ class CU_ModelForm extends Zend_Form
 					return false;
 			}
 
-			foreach($this->getRecord()->$name as $rec)
+			$record = $this->getRecord();
+			foreach($this->_adapter->getOneRecords($record, $name) as $rec)
 			{
 				$formName = $this->_getFormName($name, $rec);
 				if(isset($ndata[$formName]) && isset($ndata[$formName][$this->_getDeleteButtonName($name, $rec)]))
 				{
 					$this->removeSubForm($formName);
-					$rec->delete();
+					$this->_adapter->deleteRecord($rec);
 					return false;
 				}
 			}
@@ -416,42 +505,45 @@ class CU_ModelForm extends Zend_Form
 	}
 
 	/**
-	 * Get unignored columns
-	 * @return array
+	 * Return name of element for column
+	 * @param string $name Name of column
+	 * @return string
 	 */
-	protected function _getColumns()
+	public function getColumnElementName($name)
 	{
-		$columns = array();
-		foreach($this->_table->getColumns() as $name => $definition)
-		{
-			if((isset($definition['primary']) && $definition['primary']) ||
-				!isset($this->_columnTypes[$definition['type']]) || in_array($name, $this->_ignoreColumns))
-				continue;
-
-			$columns[$name] = $definition;
-		}
-
-		return $columns;
+		return $this->_fieldPrefix . $name;
 	}
 
 	/**
-	 * Returns all un-ignored relations
-	 * @return array
+	 * Return name of element for relation
+	 * @param string $name Alias of the relation
+	 * @return string
 	 */
-	protected function _getRelations()
+	public function getRelationElementName($name)
 	{
-		$relations = array();
+		$elName = $this->_fieldPrefix . $relation['local'] . '-' . $relation['id'];
 
-		foreach($this->_table->getRelations() as $name => $definition)
-		{
-			if(in_array($definition->getLocal(), $this->_ignoreColumns) ||
-				($this->_generateManyFields == false && $definition->getType() == Doctrine_Relation::MANY_AGGREGATE))
-				continue;
-				
-			$relations[$name] = $definition;
-		}
+		return $elName;
+	}
 
-		return $relations;
+	/**
+	 * Return element for column
+	 * @param string $name Name of column
+	 * @return Zend_Form_Element
+	 */
+	public function getElementForColumn($name)
+	{
+		return $this->getElement($this->getColumnElementName($name));
+	}
+
+	/**
+	 * Return element for relation
+	 * @param string $name Alias of the relation
+	 * @return Zend_Form_Element
+	 */
+	public function getElementForRelation($relation)
+	{
+		return $this->getElement($this->getRelationElementName($relation));
 	}
 
 	/**
@@ -463,33 +555,40 @@ class CU_ModelForm extends Zend_Form
 	{
 		$inst = $this->getRecord();
 
-		foreach($this->_getColumns() as $name => $definition)
+		foreach($this->_adapter->getColumns() as $name => $definition)
 		{
-			$inst->$name = $this->_doctrineizeValue($this->getUnfilteredValue($this->_fieldPrefix . $name), $definition['type']);
+			if($this->_isIgnoredColumn($name, $definition))
+				continue;
+
+			$value = $this->getUnfilteredValue($this->getColumnElementName($name));
+			$this->_adapter->setRecordValue($name, $value);
 		}
 
-		foreach($this->_getRelations() as $name => $relation)
+		foreach($this->_adapter->getRelations() as $name => $relation)
 		{
-			$colName = $relation->getLocal();
-			switch($relation->getType())
+			if($this->_isIgnoredRelation($relation))
+				continue;
+
+			$colName = $relation['local'];
+			switch($relation['type'])
 			{
-			case Doctrine_Relation::ONE_AGGREGATE:
+			case CU_ModelForm::RELATION_ONE:
 				//Must use null if value=0 so integrity actions won't fail
-				$val = $this->getUnfilteredValue($this->_fieldPrefix . $colName);
+				$val = $this->getUnfilteredValue($this->getRelationElementName($relation));
 				if($val == 0)
 					$val = null;
 
 				if(isset($this->_columnHooks[$colName]))
 					$val = call_user_func($this->_columnHooks[$colName], $val);
 
-				$inst->set($colName, $val);
+				$this->_adapter->setRecordValue($colName, $val);
 				break;
 
-			case Doctrine_Relation::MANY_AGGREGATE:
-				$idColumn = $relation->getTable()->getIdentifier();
-				foreach($inst->$name as $rec)
+			case CU_ModelForm::RELATION_MANY:
+				$idColumn = $relation['id'];
+				foreach($this->_adapter->getManyRecords($name) as $rec)
 				{
-					$subForm = $this->getSubForm($name . '_' . $rec->$idColumn);
+					$subForm = $this->getSubForm($name . '_' . $this->_adapter->getRecordPkValue($rec));
 
 					//Should get saved along with the main instance later
 					$subForm->save(false);
@@ -499,7 +598,7 @@ class CU_ModelForm extends Zend_Form
 				if($subForm)
 				{
 					$newRec = $subForm->save(false);
-					$inst->{$name}[] = $newRec;
+					$this->_adapter->addManyRecord($name, $newRec);
 				}
 						
 				break;
@@ -507,7 +606,7 @@ class CU_ModelForm extends Zend_Form
 		}
 
 		if($persist)
-			$inst->save();
+			$this->_adapter->saveRecord();
 
 		foreach($this->getSubForms() as $subForm)
 			$subForm->save($persist);
@@ -515,25 +614,6 @@ class CU_ModelForm extends Zend_Form
 		$this->_postSave($persist);
 		return $inst;
 	}
-
-	/**
-	 * Correct form value types for Doctrine
-	 * @param string $value value
-	 * @param string $type column type
-	 * @return mixed
-	 */
-	protected function _doctrineizeValue($value, $type)
-	{
-		switch($type)
-		{
-			case 'boolean':
-				return (boolean)$value;
-				break;
-			default:
-				return $value;
-				break;
-		}
-		trigger_error('This line should never run', E_USER_ERROR);	
-	}
 }
+
 
