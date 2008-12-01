@@ -71,6 +71,11 @@ class CU_Form_Model_Adapter_Doctrine implements CU_Form_Model_Adapter_Interface
 	 */
 	public function getRelations()
 	{
+		if(defined('Doctrine_Relation::ONE_AGGREGATE'))
+			$oneType = Doctrine_Relation::ONE_AGGREGATE;
+		else
+			$oneType = Doctrine_Relation::ONE;
+
 		$rels = $this->_table->getRelations();
 		$relations = array();
 
@@ -78,7 +83,8 @@ class CU_Form_Model_Adapter_Doctrine implements CU_Form_Model_Adapter_Interface
 		{
 			$relation = array();
 
-			if($rel->getType() == Doctrine_Relation::ONE_AGGREGATE)
+
+			if($rel->getType() == $oneType)
 				$relation['type'] = CU_Form_Model::RELATION_ONE;
 			else
 				$relation['type'] == CU_Form_Model::RELATION_MANY;	

@@ -6,7 +6,7 @@ class CU_Form_ModelTest extends PHPUnit_Framework_TestCase
 	public function setUp()
 	{
 		parent::setUp();
-		Doctrine_Manager::connection('sqlite::memory:', 'grouport');
+		Doctrine_Manager::connection('sqlite::memory:');
 		Doctrine::createTablesFromModels();
 	}
 
@@ -123,6 +123,26 @@ class CU_Form_ModelTest extends PHPUnit_Framework_TestCase
 		$form->save(false);
 
 		$this->assertTrue($form->postSaved);
+	}
+
+	public function testCreatingFormWithRelations()
+	{
+		$form = new CU_Form_Model(array(
+			'model' => 'Comment'
+		));
+	}
+
+	public function testGettingRelationFields()
+	{
+		$form = new CU_Form_Model(array(
+			'model' => 'Comment'
+		));
+
+		$name = $form->getRelationElementName('Article');
+		$elem = $form->getElementForRelation('Article');
+		$this->assertNotNull($elem);
+		$this->assertNotEquals('', $name);
+		$this->assertEquals($elem->getName(), $name);
 	}
 }
 

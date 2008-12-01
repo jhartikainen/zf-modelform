@@ -168,7 +168,20 @@ class CU_Form_Model extends Zend_Form
 		if(isset($options['fieldLabels']))
 			$this->setFieldLabels($options['fieldLabels']);
 
+		if(isset($options['fieldPrefix']))
+			$this->setFieldPrefix($options['fieldPrefix']);
+
 		parent::setOptions($options);
+	}
+
+	public function setFieldPrefix($prefix)
+	{
+		$this->_fieldPrefix = $prefix;
+	}
+
+	public function getFieldPrefix()
+	{
+		return $this->_fieldPrefix;
 	}
 	
 	public function setFieldLabels(array $labels)
@@ -364,7 +377,7 @@ class CU_Form_Model extends Zend_Form
 				$field->setLabel($label);
 				
 				if($relation['notnull'] == true)
-					$field->addValidator(new CU_Validate_DbRowExists($table));
+					$field->addValidator(new CU_Validate_DbRowExists(Doctrine::getTable($relation['class'])));
 
 				$field->setMultiOptions($options);
 				break;
@@ -521,7 +534,9 @@ class CU_Form_Model extends Zend_Form
 	 */
 	public function getRelationElementName($name)
 	{
-		$elName = $this->_fieldPrefix . $relation['local'] . '-' . $relation['id'];
+		$relations = $this->_adapter->getRelations();
+		$relation = $relations[$name];
+		$elName = $this->_fieldPrefix . $relation['local'] . '_' . $relation['id'];
 
 		return $elName;
 	}

@@ -5,6 +5,7 @@
  *
  * @property integer $id
  * @property string $name
+ * @property $Comments
  */
 abstract class BaseArticle extends Doctrine_Record
 {
@@ -15,4 +16,9 @@ abstract class BaseArticle extends Doctrine_Record
     $this->hasColumn('name', 'string', 100, array('notnull' => true, 'type' => 'string', 'length' => '100'));
   }
 
+  public function setUp()
+  {
+    $this->hasMany('Comment as Comments', array('local' => 'id',
+                                                'foreign' => 'article_id'));
+  }
 }
