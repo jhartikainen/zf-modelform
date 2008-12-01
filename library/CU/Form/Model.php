@@ -3,7 +3,7 @@
  * Class for autogenerating forms based on Doctrine models
  * @author Jani Hartikainen <firstname at codeutopia net>
  */
-class CU_ModelForm extends Zend_Form
+class CU_Form_Model extends Zend_Form
 {
 	const RELATION_ONE = 'one';
 	const RELATION_MANY = 'many';
@@ -135,7 +135,7 @@ class CU_ModelForm extends Zend_Form
 
 		$this->_adapter = self::$_defaultAdapter;
 		if($this->_adapter == null)
-			$this->_adapter = new CU_ModelForm_Adapter_Doctrine();
+			$this->_adapter = new CU_Form_Model_Adapter_Doctrine();
 
 		$this->_adapter->setTable($this->_model);
 
@@ -149,7 +149,7 @@ class CU_ModelForm extends Zend_Form
 		$this->_postGenerate();
 	}
 
-	public static function setDefaultAdapter(CU_ModelForm_Adapter_Interface $adapter)
+	public static function setDefaultAdapter(CU_Form_Model_Adapter_Interface $adapter)
 	{
 		self::$_defaultAdapter = $adapter;
 	}
@@ -188,7 +188,7 @@ class CU_ModelForm extends Zend_Form
 	
 	public static function create(array $options = array())
 	{
-		$form = new CU_ModelForm($options);
+		$form = new CU_Form_Model($options);
 	}
 	
 	
@@ -248,10 +248,10 @@ class CU_ModelForm extends Zend_Form
 
 			switch($relation['type'])
 			{
-			case CU_ModelForm::RELATION_ONE:
+			case CU_Form_Model::RELATION_ONE:
 				$this->setDefault($this->getRelationElementName($relation['alias']), $this->_adapter->getRelationPkValue($name, $relation));
 				break;
-			case CU_ModelForm::RELATION_MANY:
+			case CU_Form_Model::RELATION_MANY:
 				$formClass = $this->_relationForms[$relation->getClass()];
 				foreach($this->_adapter->getManyRecords($name) as $num => $rec)
 				{
@@ -349,7 +349,7 @@ class CU_ModelForm extends Zend_Form
 
 			switch($relation['type'])
 			{
-			case CU_ModelForm::RELATION_ONE:
+			case CU_Form_Model::RELATION_ONE:
 				$options = array('------');
 				foreach($this->_adapter->getOneRecords($relation) as $row)
 				{
@@ -392,7 +392,7 @@ class CU_ModelForm extends Zend_Form
 	protected function _isIgnoredRelation($definition)
 	{
 			if(in_array($definition['local'], $this->_ignoreColumns) ||
-				($this->_generateManyFields == false && $definition['type'] == CU_ModelForm::RELATION_MANY))
+				($this->_generateManyFields == false && $definition['type'] == CU_Form_Model::RELATION_MANY))
 				return true;
 
 			return false;
@@ -465,7 +465,7 @@ class CU_ModelForm extends Zend_Form
 			if($this->_isIgnoredRelation($relation))
 				continue;
 
-			if($relation['type'] != CU_ModelForm::RELATION_MANY)
+			if($relation['type'] != CU_Form_Model::RELATION_MANY)
 				continue;
 
 			if(isset($ndata[$this->_getNewButtonName($name)]) || isset($ndata[$this->_getFormName($name)]))
@@ -572,7 +572,7 @@ class CU_ModelForm extends Zend_Form
 			$colName = $relation['local'];
 			switch($relation['type'])
 			{
-			case CU_ModelForm::RELATION_ONE:
+			case CU_Form_Model::RELATION_ONE:
 				//Must use null if value=0 so integrity actions won't fail
 				$val = $this->getUnfilteredValue($this->getRelationElementName($relation));
 				if($val == 0)
@@ -584,7 +584,7 @@ class CU_ModelForm extends Zend_Form
 				$this->_adapter->setRecordValue($colName, $val);
 				break;
 
-			case CU_ModelForm::RELATION_MANY:
+			case CU_Form_Model::RELATION_MANY:
 				$idColumn = $relation['id'];
 				foreach($this->_adapter->getManyRecords($name) as $rec)
 				{

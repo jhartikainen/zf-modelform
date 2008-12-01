@@ -1,10 +1,10 @@
 <?php
 /**
- * A Zend_Db_Table based adapter for ModelForm
+ * A Zend_Db_Table based adapter for Form_Model
  *
  * @author Jani Hartikainen <firstname at codeutopia net>
  */
-class CU_ModelForm_Adapter_DbTable implements CU_ModelForm_Adapter_Interface
+class CU_Form_Model_Adapter_DbTable implements CU_Form_Model_Adapter_Interface
 {
 	protected $_table = null;
 	protected $_record = null;

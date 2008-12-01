@@ -1,5 +1,5 @@
 <?php
-interface CU_ModelForm_Adapter_Interface
+interface CU_Form_Model_Adapter_Interface
 {
 	/**
 	 * Return all columns as an array

@@ -1,0 +1,28 @@
+User:
+  tableName: users
+  columns:
+    id:
+        type: integer(4)
+        notnull: true
+        autoincrement: true
+        primary: true
+    login:
+        notnull: true
+        type: string(50)
+    password:
+        notnull: true
+        type: string(32)
+    email: string(200)
+
+Article:
+    tableName: articles
+    columns:
+        id:
+            type: integer(4)
+            notnull: true
+            autoincrement: true
+            primary: true
+        name:
+            notnull: true
+            type: string(100)
+

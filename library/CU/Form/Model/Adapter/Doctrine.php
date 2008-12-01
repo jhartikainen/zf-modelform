@@ -1,5 +1,5 @@
 <?php
-class CU_ModelForm_Adapter_Doctrine implements CU_ModelForm_Adapter_Interface
+class CU_Form_Model_Adapter_Doctrine implements CU_Form_Model_Adapter_Interface
 {
 	protected $_table = null;
 	protected $_record = null;
@@ -79,9 +79,9 @@ class CU_ModelForm_Adapter_Doctrine implements CU_ModelForm_Adapter_Interface
 			$relation = array();
 
 			if($rel->getType() == Doctrine_Relation::ONE_AGGREGATE)
-				$relation['type'] = CU_ModelForm::RELATION_ONE;
+				$relation['type'] = CU_Form_Model::RELATION_ONE;
 			else
-				$relation['type'] == CU_ModelForm::RELATION_MANY;	
+				$relation['type'] == CU_Form_Model::RELATION_MANY;	
 
 			$relation['id'] = $rel->getTable()->getIdentifier();
 			$relation['alias'] = $rel->getAlias();
