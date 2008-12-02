@@ -125,14 +125,14 @@ class CU_Form_ModelTest extends PHPUnit_Framework_TestCase
 		$this->assertTrue($form->postSaved);
 	}
 
-	public function testCreatingFormWithRelations()
+	public function testCreatingFormWithOneRelation()
 	{
 		$form = new CU_Form_Model(array(
 			'model' => 'Comment'
 		));
 	}
 
-	public function testGettingRelationFields()
+	public function testGettingOneRelationFields()
 	{
 		$form = new CU_Form_Model(array(
 			'model' => 'Comment'
@@ -143,6 +143,14 @@ class CU_Form_ModelTest extends PHPUnit_Framework_TestCase
 		$this->assertNotNull($elem);
 		$this->assertNotEquals('', $name);
 		$this->assertEquals($elem->getName(), $name);
+	}
+
+	public function testCreatingFormWithManyRelation()
+	{
+		$form = new CU_Form_Model(array(
+			'model' => 'Article',
+			'generateManyFields' => true
+		));
 	}
 }
 

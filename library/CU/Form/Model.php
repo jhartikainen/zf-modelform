@@ -171,7 +171,20 @@ class CU_Form_Model extends Zend_Form
 		if(isset($options['fieldPrefix']))
 			$this->setFieldPrefix($options['fieldPrefix']);
 
+		if(isset($options['generateManyFields']))
+			$this->setGenerateManyFields($options['generateManyFields']);
+
 		parent::setOptions($options);
+	}
+
+	public function setGenerateManyFields($value)
+	{
+		$this->_generateManyFields = $value;
+	}
+
+	public function getGenerateManyFields()
+	{
+		return $this->_generateManyFields;
 	}
 
 	public function setFieldPrefix($prefix)
@@ -382,7 +395,7 @@ class CU_Form_Model extends Zend_Form
 				$field->setMultiOptions($options);
 				break;
 
-			case Doctrine_Relation::MANY_AGGREGATE:
+			case CU_Form_Model::RELATION_MANY:
 				$relCls = $relation['class'];
 				$class = $this->getPluginLoader(self::FORM)->load($relCls);
 				$this->_relationForms[$relCls] = $class;

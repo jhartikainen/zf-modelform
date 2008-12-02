@@ -56,7 +56,19 @@ class CU_Form_Model_Adapter_Doctrine implements CU_Form_Model_Adapter_Interface
 	 */
 	public function getColumns()
 	{
-		return $this->_table->getColumns();
+		$data = $this->_table->getColumns();
+		$cols = array();
+		foreach($data as $name => $d)
+		{
+			$cols[$name] = array(
+				'type' => $d['type'],
+				'notnull' => (isset($d['notnull'])) ? $d['notnull'] : false,
+				'values' => (isset($d['values'])) ? $d['values'] : array(),
+				'primary' => (isset($d['primary'])) ? $d['primary'] : false
+			);
+		}
+
+		return $cols;
 	}
 
 	/**
@@ -87,7 +99,7 @@ class CU_Form_Model_Adapter_Doctrine implements CU_Form_Model_Adapter_Interface
 			if($rel->getType() == $oneType)
 				$relation['type'] = CU_Form_Model::RELATION_ONE;
 			else
-				$relation['type'] == CU_Form_Model::RELATION_MANY;	
+				$relation['type'] = CU_Form_Model::RELATION_MANY;	
 
 			$relation['id'] = $rel->getTable()->getIdentifier();
 			$relation['alias'] = $rel->getAlias();
