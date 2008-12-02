@@ -9,5 +9,6 @@ $config = array('data_fixtures_path'  =>  DATA_FIXTURES_PATH,
                 'sql_path'            =>  SQL_PATH,
                 'yaml_schema_path'    =>  YAML_SCHEMA_PATH);
 
+Doctrine_Manager::connection('sqlite:test.db');
 $cli = new Doctrine_Cli($config);
 $cli->run($_SERVER['argv']);

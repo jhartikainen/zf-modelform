@@ -130,13 +130,6 @@ class CU_Form_ModelTest extends PHPUnit_Framework_TestCase
 		$form = new CU_Form_Model(array(
 			'model' => 'Comment'
 		));
-	}
-
-	public function testGettingOneRelationFields()
-	{
-		$form = new CU_Form_Model(array(
-			'model' => 'Comment'
-		));
 
 		$name = $form->getRelationElementName('Article');
 		$elem = $form->getElementForRelation('Article');
@@ -151,7 +144,21 @@ class CU_Form_ModelTest extends PHPUnit_Framework_TestCase
 			'model' => 'Article',
 			'generateManyFields' => true
 		));
+
+		$forms = $form->getSubForms();
+		$this->assertTrue(count($forms) == 0);
 	}
+
+	public function testNotNullColumnsAreRequired()
+	{
+		$form = new CU_Form_Model(array(
+			'model' => 'Comment'
+		));
+
+		$this->assertFalse($form->getElementForColumn('sender')->isValid(''));
+		$this->assertFalse($form->getElementForRelation('Article')->isValid(''));
+	}
+
 }
 
 class CU_Form_ModelTest_Form extends CU_Form_Model

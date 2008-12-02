@@ -390,14 +390,23 @@ class CU_Form_Model extends Zend_Form
 				$field->setLabel($label);
 				
 				if($relation['notnull'] == true)
-					$field->addValidator(new CU_Validate_DbRowExists(Doctrine::getTable($relation['class'])));
+					$field->setRequired(true);
 
 				$field->setMultiOptions($options);
 				break;
 
 			case CU_Form_Model::RELATION_MANY:
 				$relCls = $relation['class'];
-				$class = $this->getPluginLoader(self::FORM)->load($relCls);
+
+				//Attempt loading a custom form
+				try
+				{
+					$class = $this->getPluginLoader(self::FORM)->load($relCls);
+				}
+				catch(Zend_Loader_PluginLoader_Exception $e)
+				{
+					$class = null;
+				}
 				$this->_relationForms[$relCls] = $class;
 
 				$label = $relCls;
@@ -503,7 +512,17 @@ class CU_Form_Model extends Zend_Form
 				}
 
 				$cls = $this->_relationForms[$relation['class']];
-				$form = new $cls;
+				if($cls !== null)
+				{
+					$form = new $cls;
+				}
+				else
+				{
+					$form = new CU_Form_Model(array(
+						'model' => $relation['class']
+					));
+				}
+
 				$form->setIsArray(true);
 				$form->removeDecorator('Form');
 				$form->addElement('submit',$this->_getDeleteButtonName($name), array(
