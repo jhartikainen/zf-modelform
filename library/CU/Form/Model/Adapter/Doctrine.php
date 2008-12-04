@@ -102,7 +102,6 @@ class CU_Form_Model_Adapter_Doctrine implements CU_Form_Model_Adapter_Interface
 				$relation['type'] = CU_Form_Model::RELATION_MANY;	
 
 			$relation['id'] = $rel->getTable()->getIdentifier();
-			$relation['alias'] = $rel->getAlias();
 			$relation['model'] = $rel->getClass();
 			$relation['local'] = $rel->getLocal();
 

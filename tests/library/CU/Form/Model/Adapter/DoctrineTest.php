@@ -69,7 +69,7 @@ class CU_Form_Model_Adapter_DoctrineTest extends PHPUnit_Framework_TestCase
 		{
 			$this->assertTrue(isset($r['type']), 'Data does not contain type');
 			$this->assertTrue(isset($r['id']), 'Data does not contain id');
-			$this->assertTrue(isset($r['class']), 'Data does not contain class');
+			$this->assertTrue(isset($r['model']), 'Data does not contain model');
 			$this->assertTrue(isset($r['notnull']), 'Data does not contain notnull');
 			$this->assertTrue(isset($r['local']), 'Data does not contain local');
 

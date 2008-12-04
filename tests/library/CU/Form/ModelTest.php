@@ -3,19 +3,94 @@ require_once 'TestHelper.php';
 
 class CU_Form_ModelTest extends PHPUnit_Framework_TestCase
 {
+	private $_adapter;
+
+	private $_columns = array();
+	private $_relations = array();
+
 	public function setUp()
 	{
 		parent::setUp();
-		Doctrine_Manager::connection('sqlite::memory:');
-		Doctrine::createTablesFromModels();
-	}
 
-	public function tearDown()
-	{
-		parent::tearDown();
-		Doctrine_Manager::getInstance()->closeConnection(Doctrine_Manager::connection());
-	}
+		$this->_columns['User'] = array(
+			'id' => array(
+				'type' => 'integer',
+				'notnull' => true,
+				'values' => array(),
+				'primary' => true
+			),
+			'login' => array(
+				'type' => 'string',
+				'notnull' => true,
+				'values' => array(),
+				'primary' => false
+			),
+			'password' => array(
+				'type' => 'string',
+				'notnull' => true,
+				'values' => array(),
+				'primary' => false
+			)
+		);
 
+		$this->_relations['User'] = array();
+
+		$this->_columns['Comment'] = array(
+			'id' => array(
+				'type' => 'integer',
+				'notnull' => true,
+				'values' => array(),
+				'primary' => true
+			),
+			'sender' => array(
+				'type' => 'string',
+				'notnull' => true,
+				'values' => array(),
+				'primary' => false
+			),
+			'article_id' => array(
+				'type' => 'integer',
+				'notnull' => true,
+				'values' => array(),
+				'primary' => false
+			)
+		);
+
+		$this->_relations['Comment'] = array(
+			'Article' => array(
+				'type' => CU_Form_Model::RELATION_ONE,
+				'id' => 'id',
+				'model' => 'Article',
+				'notnull' => true,
+				'local' => 'article_id'
+			)
+		);
+
+		$this->_columns['Article'] = array(
+			'id' => array(
+				'type' => 'integer',
+				'notnull' => true,
+				'values' => array(),
+				'primary' => true
+			),
+			'name' => array(
+				'type' => 'string',
+				'notnull' => true,
+				'values' => array(),
+				'primary' => false
+			)
+		);
+
+		$this->_relations['Article'] = array(
+			'Article' => array(
+				'type' => CU_Form_Model::RELATION_MANY,
+				'id' => 'id',
+				'model' => 'Article',
+				'notnull' => false,
+				'local' => 'article_id'
+			)
+		);
+	}
 
 	public function testNoModelFails()
 	{
@@ -31,19 +106,47 @@ class CU_Form_ModelTest extends PHPUnit_Framework_TestCase
 		$this->fail();
 	}
 
+	private function _initAdapter($table)
+	{
+		$this->_adapter = $this->getMock('CU_Form_Model_Adapter_Interface');
+
+		$this->_adapter->expects($this->any())
+		               ->method('setTable')
+					   ->with($this->equalTo($table));
+
+		//Should be called on $form->getTable()
+		$this->_adapter->expects($this->any())
+			           ->method('getTable')
+                       ->will($this->returnValue($table));
+
+		$this->_adapter->expects($this->any())
+		               ->method('getColumns')
+					   ->will($this->returnValue($this->_columns[$table]));
+
+		$this->_adapter->expects($this->any())
+		               ->method('getRelations')
+					   ->will($this->returnValue($this->_relations[$table]));
+	}
+
 	public function testTableLoading()
 	{
+		$this->_initAdapter('User');	
+
 		$form = new CU_Form_Model(array(
-			'model' => 'User'
+			'model' => 'User',
+			'adapter' => $this->_adapter
 		));
 
-		$this->assertEquals('User', $form->getTable()->getComponentName());
+		$this->assertEquals('User', $form->getTable());
 	}
 
 	public function testColumnIgnoring()
 	{
+		$this->_initAdapter('User');
+
 		$form = new CU_Form_Model(array(
 			'model' => 'User',
+			'adapter' => $this->_adapter,
 			'ignoreColumns' => array('login')
 		));
 
@@ -53,8 +156,11 @@ class CU_Form_ModelTest extends PHPUnit_Framework_TestCase
 
 	public function testPrimaryKeyIgnored()
 	{
+		$this->_initAdapter('User');
+
 		$form = new CU_Form_Model(array(
-			'model' => 'User'
+			'model' => 'User',
+			'adapter' => $this->_adapter
 		));
 	
 		$this->assertNull($form->getElementForColumn('id'));
@@ -62,9 +168,12 @@ class CU_Form_ModelTest extends PHPUnit_Framework_TestCase
 
 	public function testZendFormParametersPass()
 	{
+		$this->_initAdapter('User');
+
 		$form = new CU_Form_Model(array(
 			'model' => 'User',
-			'action' => 'test'
+			'action' => 'test',
+			'adapter' => $this->_adapter
 		));
 
 		$this->assertEquals('test', $form->getAction());
@@ -72,48 +181,84 @@ class CU_Form_ModelTest extends PHPUnit_Framework_TestCase
 
 	public function testRecordLoading()
 	{
+		$this->_initAdapter('User');
+
+		$this->_adapter->expects($this->any())
+		               ->method('getRecord')
+					   ->will($this->onConsecutiveCalls(false, true));
+
+		$this->_adapter->expects($this->once())
+		               ->method('getNewRecord')
+					   ->will($this->returnValue(false));
+
 		$form = new CU_Form_Model(array(
-			'model' => 'User'
+			'model' => 'User',
+			'adapter' => $this->_adapter
 		));
 
-		$this->assertFalse($form->getRecord()->exists());
+		//First getRecord is set up to return false
+		$this->assertFalse($form->getRecord());
 
-		$record = new User();
-		$record->login = 'Test';
+		$user = array(
+			'login' => 'Login',
+			'password' => 'Password'
+		);
 
-		$form->setRecord($record);
+		$this->_adapter->expects($this->once())
+		               ->method('setRecord')
+                       ->with($this->equalTo($user));
 
-		$this->assertEquals('Test', $form->getRecord()->login);
-		$this->assertEquals('Test', $form->getElementForColumn('login')->getValue());
+		//NOTE: will cause a wrong value to be inputted into the password field!
+		$this->_adapter->expects($this->any())
+		               ->method('getRecordValue')
+					   ->will($this->returnValue('Login'));
+
+		$form->setRecord($user);
+
+		//Second getRecord is set up to return true
+		$this->assertTrue($form->getRecord());
+
+		$this->assertEquals('Login', $form->getElementForColumn('login')->getValue());
 	}
 
 	public function testRecordSaving()
 	{
+		$this->_initAdapter('User');
+
 		$form = new CU_Form_Model(array(
-			'model' => 'User'
+			'model' => 'User',
+			'adapter' => $this->_adapter
 		));
 
 		$form->getElementForColumn('login')->setValue('Test');
 		$form->getElementForColumn('password')->setValue('Test');
 
+		//Should not get called if persist param is false
+		$this->_adapter->expects($this->never())
+		               ->method('saveRecord');
+
 		$form->save(false);
-		
-		$this->assertFalse($form->getRecord()->exists());
+
+		$this->_initAdapter('User');
+		$form->setAdapter($this->_adapter);
+
+		$this->_adapter->expects($this->once())
+		               ->method('saveRecord');
+
+		//Should get called twice as we set two values
+		$this->_adapter->expects($this->exactly(2))
+		               ->method('setRecordValue');
 
 		$record = $form->save();
-
-		$this->assertTrue($form->getRecord()->exists());
-		$this->assertNotNull($record);
-		$this->assertEquals($record->id, $form->getRecord()->id);
-
-		$record->delete();
-		$this->assertFalse($form->getRecord()->exists());
 	}
 
 	public function testEventHooks()
 	{
+		$this->_initAdapter('User');
+
 		$form = new CU_Form_ModelTest_Form(array(
-			'model' => 'User'
+			'model' => 'User',
+			'adapter' => $this->_adapter
 		));
 
 		$this->assertTrue($form->preGenerated);
@@ -127,8 +272,17 @@ class CU_Form_ModelTest extends PHPUnit_Framework_TestCase
 
 	public function testCreatingFormWithOneRelation()
 	{
+		$this->_initAdapter('Comment');
+
+		$this->_adapter->expects($this->once())
+		               ->method('getOneRecords')
+					   ->with($this->_relations['Comment']['Article'])
+					   ->will($this->returnValue(array()));
+		               
+
 		$form = new CU_Form_Model(array(
-			'model' => 'Comment'
+			'model' => 'Comment',
+			'adapter' => $this->_adapter
 		));
 
 		$name = $form->getRelationElementName('Article');
@@ -140,9 +294,12 @@ class CU_Form_ModelTest extends PHPUnit_Framework_TestCase
 
 	public function testCreatingFormWithManyRelation()
 	{
+		$this->_initAdapter('Article');
+
 		$form = new CU_Form_Model(array(
 			'model' => 'Article',
-			'generateManyFields' => true
+			'generateManyFields' => true,
+			'adapter' => $this->_adapter
 		));
 
 		$forms = $form->getSubForms();
@@ -151,14 +308,47 @@ class CU_Form_ModelTest extends PHPUnit_Framework_TestCase
 
 	public function testNotNullColumnsAreRequired()
 	{
+		$this->_initAdapter('Comment');
+
+		$this->_adapter->expects($this->any())
+		               ->method('getOneRecords')
+					   ->will($this->returnValue(array()));
+
 		$form = new CU_Form_Model(array(
-			'model' => 'Comment'
+			'model' => 'Comment',
+			'adapter' => $this->_adapter
 		));
 
 		$this->assertFalse($form->getElementForColumn('sender')->isValid(''));
 		$this->assertFalse($form->getElementForRelation('Article')->isValid(''));
 	}
 
+	public function testOneRelationSaving()
+	{
+		$this->_initAdapter('Comment');
+
+		$article = array(
+			'id' => 1,
+			'name' => 'Test'
+		);
+
+		$this->_adapter->expects($this->once())
+		               ->method('getOneRecords')
+					   ->will($this->returnValue(array($article)));
+
+		$form = new CU_Form_Model(array(
+			'model' => 'Comment',
+			'adapter' => $this->_adapter
+		));
+
+		$form->getElementForRelation('Article')->setValue(1);
+		$form->getElementForColumn('sender')->setValue('Sender');
+
+		$this->_adapter->expects($this->any())
+		               ->method('setRecordValue');
+
+		$form->save();
+	}
 }
 
 class CU_Form_ModelTest_Form extends CU_Form_Model

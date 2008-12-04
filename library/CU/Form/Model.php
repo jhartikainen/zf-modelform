@@ -282,7 +282,7 @@ class CU_Form_Model extends Zend_Form
 			$this->setDefault($this->getColumnElementName($name), $this->_adapter->getRecordValue($name));
 		}
 
-		foreach($this->_adapter->getRelations() as $name => $relation)
+		foreach($this->_adapter->getRelations() as $alias => $relation)
 		{
 			if($this->_isIgnoredRelation($relation))
 				continue;
@@ -290,17 +290,17 @@ class CU_Form_Model extends Zend_Form
 			switch($relation['type'])
 			{
 			case CU_Form_Model::RELATION_ONE:
-				$this->setDefault($this->getRelationElementName($relation['alias']), $this->_adapter->getRelationPkValue($name, $relation));
+				$this->setDefault($this->getRelationElementName($alias), $this->_adapter->getRelationPkValue($alias, $relation));
 				break;
 			case CU_Form_Model::RELATION_MANY:
 				$formClass = $this->_relationForms[$relation->getClass()];
-				foreach($this->_adapter->getManyRecords($name) as $num => $rec)
+				foreach($this->_adapter->getManyRecords($alias) as $num => $rec)
 				{
 					$form = new $formClass;
 					$form->setRecord($rec);
 					$form->setIsArray(true);
 					$form->removeDecorator('Form');
-					$form->addElement('submit', $this->_getDeleteButtonName($name, $rec), array(
+					$form->addElement('submit', $this->_getDeleteButtonName($alias, $rec), array(
 						'label' => 'Delete'
 					));
 					$label = $relation['model'];
@@ -309,7 +309,7 @@ class CU_Form_Model extends Zend_Form
 
 					$form->setLegend($label . ' ' . ($num + 1))
 					     ->addDecorator('Fieldset');
-					$this->addSubForm($form, $this->_getFormName($name, $rec));
+					$this->addSubForm($form, $this->_getFormName($alias, $rec));
 				}
 				break;
 			}
