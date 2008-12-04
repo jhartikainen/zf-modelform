@@ -75,7 +75,7 @@ class CU_Form_Model_Adapter_Doctrine implements CU_Form_Model_Adapter_Interface
 	 * Return relations as an array
 	 *
 	 * Array must contain 'type' for relation type, 'id' for the name
-	 * of the PK column of the related table, 'class' for the related class
+	 * of the PK column of the related table, 'model' for the related class
 	 * name, 'notnull' for nullability. 'local' for the name of the local column
 	 * Key must be the alias of the relation column
 	 *
@@ -103,7 +103,7 @@ class CU_Form_Model_Adapter_Doctrine implements CU_Form_Model_Adapter_Interface
 
 			$relation['id'] = $rel->getTable()->getIdentifier();
 			$relation['alias'] = $rel->getAlias();
-			$relation['class'] = $rel->getClass();
+			$relation['model'] = $rel->getClass();
 			$relation['local'] = $rel->getLocal();
 
 			$definition = $this->_table->getColumnDefinition($rel->getLocal());

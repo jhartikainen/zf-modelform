@@ -16,7 +16,7 @@ interface CU_Form_Model_Adapter_Interface
 	 * Return relations as an array
 	 *
 	 * Array must contain 'type' for relation type, 'id' for the name
-	 * of the PK column of the related table, 'class' for the related class
+	 * of the PK column of the related table, 'model' for the related model
 	 * name, 'notnull' for nullability. 'local' for the name of the local column
 	 * Key must be the alias of the relation column
 	 *
@@ -86,7 +86,7 @@ interface CU_Form_Model_Adapter_Interface
 
 	/**
 	 * Return the record
-	 * @return mixed
+	 * @return mixed|null Null on failure
 	 */
 	public function getRecord();
 

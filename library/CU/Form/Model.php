@@ -133,11 +133,11 @@ class CU_Form_Model extends Zend_Form
 		if($this->_model == '')
 			throw new Exception('No model defined');
 
-		$this->_adapter = self::$_defaultAdapter;
-		if($this->_adapter == null)
-			$this->_adapter = new CU_Form_Model_Adapter_Doctrine();
+		if($this->_adapter == null && self::$_defaultAdapter != null)
+			$this->setAdapter(self::$_defaultAdapter);
+		elseif($this->_adapter == null)
+			$this->setAdapter(new CU_Form_Model_Adapter_Doctrine());
 
-		$this->_adapter->setTable($this->_model);
 
 		$this->_formLoader = new Zend_Loader_PluginLoader(array(
 			'App_Form_Model' => 'App/Form/Model/'
@@ -149,6 +149,17 @@ class CU_Form_Model extends Zend_Form
 		$this->_postGenerate();
 	}
 
+	public function getAdapter()
+	{
+		return $this->_adapter;
+	}
+
+	public function setAdapter(CU_Form_Model_Adapter_Interface $adapter)
+	{
+		$this->_adapter = $adapter;
+		$this->_adapter->setTable($this->_model);
+	}
+
 	public static function setDefaultAdapter(CU_Form_Model_Adapter_Interface $adapter)
 	{
 		self::$_defaultAdapter = $adapter;
@@ -158,6 +169,10 @@ class CU_Form_Model extends Zend_Form
 	{
 		if(isset($options['model']))
 			$this->_model = $options['model'];
+
+		//adapter must be set after the model
+		if(isset($options['adapter']))
+			$this->setAdapter($options['adapter']);
 		
 		if(isset($options['ignoreColumns']))
 			$this->ignoreColumns($options['ignoreColumns']);
@@ -288,9 +303,9 @@ class CU_Form_Model extends Zend_Form
 					$form->addElement('submit', $this->_getDeleteButtonName($name, $rec), array(
 						'label' => 'Delete'
 					));
-					$label = $relation['class'];
-					if(isset($this->_relationLabels[$relation['class']]))
-						$label = $this->_relationLabels[$relation['class']];
+					$label = $relation['model'];
+					if(isset($this->_relationLabels[$relation['model']]))
+						$label = $this->_relationLabels[$relation['model']];
 
 					$form->setLegend($label . ' ' . ($num + 1))
 					     ->addDecorator('Fieldset');
@@ -383,7 +398,7 @@ class CU_Form_Model extends Zend_Form
 				}
 
 				$field = $this->createElement('select', $this->getRelationElementName($alias));
-				$label = $relation['class'];
+				$label = $relation['model'];
 				if(isset($this->_fieldLabels[$alias]))
 					$label = $this->_fieldLabels[$alias];
 
@@ -396,7 +411,7 @@ class CU_Form_Model extends Zend_Form
 				break;
 
 			case CU_Form_Model::RELATION_MANY:
-				$relCls = $relation['class'];
+				$relCls = $relation['model'];
 
 				//Attempt loading a custom form
 				try
@@ -511,7 +526,7 @@ class CU_Form_Model extends Zend_Form
 					return false;
 				}
 
-				$cls = $this->_relationForms[$relation['class']];
+				$cls = $this->_relationForms[$relation['model']];
 				if($cls !== null)
 				{
 					$form = new $cls;
@@ -519,7 +534,7 @@ class CU_Form_Model extends Zend_Form
 				else
 				{
 					$form = new CU_Form_Model(array(
-						'model' => $relation['class']
+						'model' => $relation['model']
 					));
 				}
 
@@ -621,7 +636,7 @@ class CU_Form_Model extends Zend_Form
 			{
 			case CU_Form_Model::RELATION_ONE:
 				//Must use null if value=0 so integrity actions won't fail
-				$val = $this->getUnfilteredValue($this->getRelationElementName($relation));
+				$val = $this->getUnfilteredValue($this->getRelationElementName($name));
 				if($val == 0)
 					$val = null;
 
