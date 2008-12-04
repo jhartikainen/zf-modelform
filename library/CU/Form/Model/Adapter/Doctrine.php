@@ -153,7 +153,7 @@ class CU_Form_Model_Adapter_Doctrine implements CU_Form_Model_Adapter_Interface
 
 	public function getOneRecords($relation)
 	{
-		return Doctrine::getTable($relation['class'])->findAll();
+		return Doctrine::getTable($relation['model'])->findAll();
 	}
 
 	public function deleteRecord($record)
