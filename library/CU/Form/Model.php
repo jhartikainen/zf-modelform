@@ -290,7 +290,8 @@ class CU_Form_Model extends Zend_Form
 			switch($relation['type'])
 			{
 			case CU_Form_Model::RELATION_ONE:
-				$this->setDefault($this->getRelationElementName($alias), $this->_adapter->getRelationPkValue($alias, $relation));
+				$related = $this->_adapter->getRelatedRecord($instance, $alias);
+				$this->setDefault($this->getRelationElementName($alias), $this->_adapter->getRecordIdentifier($related));
 				break;
 			case CU_Form_Model::RELATION_MANY:
 				$formClass = $this->_relationForms[$relation->getClass()];
@@ -394,7 +395,7 @@ class CU_Form_Model extends Zend_Form
 				$options = array('------');
 				foreach($this->_adapter->getOneRecords($relation) as $row)
 				{
-					$options[$this->_adapter->getRecordPkValue($row)] = (string)$row;
+					$options[$this->_adapter->getRecordIdentifier($row)] = (string)$row;
 				}
 
 				$field = $this->createElement('select', $this->getRelationElementName($alias));
@@ -477,7 +478,7 @@ class CU_Form_Model extends Zend_Form
 	{
 		$val = 'new';
 		if($record != null)
-			$val = $this->_adapter->getRecordPkValue($record);
+			$val = $this->_adapter->getRecordIdentifier($record);
 
 		return $relationAlias . '_' . $val . '_delete';
 	}
@@ -491,7 +492,7 @@ class CU_Form_Model extends Zend_Form
 	{
 		if($record != null)
 		{
-			$val = $this->_adapter->getRecordPkValue($record);
+			$val = $this->_adapter->getRecordIdentifier($record);
 			return $relationAlias . '_' . $val;
 		}
 
@@ -650,7 +651,7 @@ class CU_Form_Model extends Zend_Form
 				$idColumn = $relation['id'];
 				foreach($this->_adapter->getManyRecords($name) as $rec)
 				{
-					$subForm = $this->getSubForm($name . '_' . $this->_adapter->getRecordPkValue($rec));
+					$subForm = $this->getSubForm($name . '_' . $this->_adapter->getRecordIdentifier($rec));
 
 					//Should get saved along with the main instance later
 					$subForm->save(false);

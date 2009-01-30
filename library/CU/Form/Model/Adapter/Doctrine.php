@@ -116,12 +116,9 @@ class CU_Form_Model_Adapter_Doctrine implements CU_Form_Model_Adapter_Interface
 		return $relations;
 	}
 
-	/**
-	 * Return 
-	 */
-	public function getRelationPkValue($name, $relation)
+	public function getRelatedRecord($record, $name)
 	{
-		return $this->_record->$name->{$relation['id']};
+		return $record->$name;
 	}
 
 	/**
@@ -129,7 +126,7 @@ class CU_Form_Model_Adapter_Doctrine implements CU_Form_Model_Adapter_Interface
 	 * @param Doctrine_Record $record
 	 * @return mixed
 	 */
-	public function getRecordPkValue($record)
+	public function getRecordIdentifier($record)
 	{
 		$col = $record->getTable()->getIdentifier();
 		return $record->$col;

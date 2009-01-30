@@ -77,12 +77,13 @@ class CU_Form_Model_Adapter_DbTable implements CU_Form_Model_Adapter_Interface
 		return array();
 	}
 
-	public function getRelationPkValue($name, $relation)
+
+	public function getRelatedRecord($record, $name)
 	{
 		return null;
 	}
 
-	public function getRecordPkValue($record)
+	public function getRecordIdentifier($record)
 	{
 		$info = $record->getTable()->info();
 

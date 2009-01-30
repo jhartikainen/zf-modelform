@@ -25,19 +25,19 @@ interface CU_Form_Model_Adapter_Interface
 	public function getRelations();
 
 	/**
-	 * Return the value of the PK in the relation
+	 * Return a related object, or null if not found
+	 * @param mixed $record the record where to look at
 	 * @param string $name name of the relation
-	 * @param array $relation definition
 	 * @return mixed
 	 */
-	public function getRelationPkValue($name, $relation);
+	public function getRelatedRecord($record, $name);
 
 	/**
-	 * Return the value of a record's PK
+	 * Return the value of a record's unique identifier
 	 * @param mixed $record
 	 * @return mixed
 	 */
-	public function getRecordPkValue($record);
+	public function getRecordIdentifier($record);
 
 	/**
 	 * Get the records for a many-relation
