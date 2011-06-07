@@ -76,7 +76,7 @@ class CU_Form_Model_Adapter_Doctrine2 implements CU_Form_Model_Adapter_Interface
      * @return mixed
      */
     public function getNewRecord() {
-        // TODO: Implement getNewRecord() method.
+        return $this->metadata->newInstance();
     }
 
     /**
