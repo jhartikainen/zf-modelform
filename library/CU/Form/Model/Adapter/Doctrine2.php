@@ -151,7 +151,7 @@ class CU_Form_Model_Adapter_Doctrine2 implements CU_Form_Model_Adapter_Interface
      * Save the record
      */
     public function saveRecord() {
-        // TODO: Implement saveRecord() method.
+        $this->em->persist($this->record);
     }
 
     /**
@@ -168,7 +168,7 @@ class CU_Form_Model_Adapter_Doctrine2 implements CU_Form_Model_Adapter_Interface
      * @param mixed $value
      */
     public function setRecordValue($column, $value) {
-        // TODO: Implement setRecordValue() method.
+        $this->metadata->setFieldValue($this->record, $column, $value);
     }
 
     /**
