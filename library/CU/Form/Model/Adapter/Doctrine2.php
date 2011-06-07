@@ -1,5 +1,6 @@
 <?php
 use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\Mapping\ClassMetadata;
 
 class CU_Form_Model_Adapter_Doctrine2 implements CU_Form_Model_Adapter_Interface {
     /**
@@ -48,12 +49,10 @@ class CU_Form_Model_Adapter_Doctrine2 implements CU_Form_Model_Adapter_Interface
      * @return array
      */
     public function getColumns() {
-        $this->metadata = $this->em->getClassMetadata($this->table);
-
         $columns = array();
         foreach($this->metadata->fieldMappings as $name => $data) {
-            $columns[$name] = array(
-                'name' => $name,
+            $columns[$data['columnName']] = array(
+                'name' => $data['columnName'],
                 'type' => $data['type'],
                 'notnull' => !$data['nullable'],
                 'primary' => isset($data['id']) && $data['id'] === true
@@ -86,7 +85,7 @@ class CU_Form_Model_Adapter_Doctrine2 implements CU_Form_Model_Adapter_Interface
      * @return array array of records
      */
     public function getOneRecords($relation) {
-        // TODO: Implement getOneRecords() method.
+        return $this->em->getRepository($relation['model'])->findAll();
     }
 
     /**
@@ -103,7 +102,16 @@ class CU_Form_Model_Adapter_Doctrine2 implements CU_Form_Model_Adapter_Interface
      * @return mixed
      */
     public function getRecordIdentifier($record) {
-        // TODO: Implement getRecordIdentifier() method.
+        if(!$record) {
+            return null;
+        }
+
+        $pks = $this->em->getClassMetadata(get_class($record))->getIdentifierValues($record);
+        if(count($pks) > 1) {
+            throw new \RuntimeException('Currently only support entities with single column PK');
+        }
+
+        return array_shift(array_values($pks));
     }
 
     /**
@@ -112,7 +120,8 @@ class CU_Form_Model_Adapter_Doctrine2 implements CU_Form_Model_Adapter_Interface
      * @return string
      */
     public function getRecordValue($column) {
-        return $this->metadata->getFieldValue($this->record, $column);
+        $field = $this->metadata->getFieldForColumn($column);
+        return $this->metadata->getFieldValue($this->record, $field);
     }
 
     /**
@@ -122,7 +131,7 @@ class CU_Form_Model_Adapter_Doctrine2 implements CU_Form_Model_Adapter_Interface
      * @return mixed
      */
     public function getRelatedRecord($record, $name) {
-        // TODO: Implement getRelatedRecord() method.
+        return $this->metadata->getFieldValue($record, $name);
     }
 
     /**
@@ -136,7 +145,35 @@ class CU_Form_Model_Adapter_Doctrine2 implements CU_Form_Model_Adapter_Interface
      * @return array
      */
     public function getRelations() {
-        return array();
+        $relations = array();
+        foreach($this->metadata->associationMappings as $name => $data) {
+            $type = null;
+            switch($data['type']) {
+                case ClassMetadata::MANY_TO_ONE:
+                    $type = CU_Form_Model::RELATION_ONE;
+                    break;
+
+                case ClassMetadata::MANY_TO_MANY:
+                    $type = CU_Form_Model::RELATION_MANY;
+                    break;
+
+            }
+
+            //If unsupported relation type, skip to next
+            if($type === null) {
+                continue;
+            }
+
+            $relations[$name] = array(
+                'type' => $type,
+                'id' => $data['joinColumns'][0]['referencedColumnName'],
+                'model' => $data['targetEntity'],
+                'notnull' => !$data['joinColumns'][0]['nullable'],
+                'local' => $data['joinColumns'][0]['name']
+            );
+        }
+
+        return $relations;
     }
 
     /**
@@ -168,7 +205,14 @@ class CU_Form_Model_Adapter_Doctrine2 implements CU_Form_Model_Adapter_Interface
      * @param mixed $value
      */
     public function setRecordValue($column, $value) {
-        $this->metadata->setFieldValue($this->record, $column, $value);
+        $field = $this->metadata->getFieldForColumn($column);
+        if($value !== null && isset($this->metadata->associationMappings[$field])) {
+            $refClass = $this->metadata->associationMappings[$field]['targetEntity'];
+            $this->metadata->setFieldValue($this->record, $field, $this->em->getReference($refClass, $value));
+        }
+        else {
+            $this->metadata->setFieldValue($this->record, $field, $value);
+        }
     }
 
     /**
@@ -177,5 +221,6 @@ class CU_Form_Model_Adapter_Doctrine2 implements CU_Form_Model_Adapter_Interface
      */
     public function setTable($table) {
         $this->table = $table;
+        $this->metadata = $this->em->getClassMetadata($this->table);
     }
 }
